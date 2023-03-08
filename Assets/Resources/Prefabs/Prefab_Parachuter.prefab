@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 2828435658436851984}
   - component: {fileID: 7871998997076173155}
   - component: {fileID: 493806749023269243}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Prefab_Parachuter
   m_TagString: Parachuter
   m_Icon: {fileID: 0}

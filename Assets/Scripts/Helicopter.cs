@@ -1,21 +1,27 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 public class Helicopter : MonoBehaviour {
-    private float speed;
-    private float downForce;
-    private float height;
-    private Vector3 direction;
+    private const float height = 3.0f;
+    private const float speedIncrement = 0.01f;
+    private const float dropIncrement = 0.25f;
+    private const float maxPercent = 1.0f;
 
+    private float speed;
+    private float dropMagnitude;
+    private Vector3 direction;
     private GameManager manager;
     private GameObject parachuterPrefab;
     private GameObject barrelPrefab;
     private SpriteRenderer heliSpriteRenderer;
-    
+    private Rigidbody2D heliRigidBody;
+    private List<GameObject> activeParachuters = new List<GameObject>();
+    private List<GameObject> activeBarrels = new List<GameObject>();
 
-    public void Start() {
+
+    public void Awake() {
         speed = 2.0f;
-        downForce = 0.0f;
-        height = 3.0f;
+        dropMagnitude = 0.0f;
         direction = Vector3.right;
         Vector3 startPos = transform.position;
         startPos.y = height;
@@ -24,36 +30,64 @@ public class Helicopter : MonoBehaviour {
         parachuterPrefab = Resources.Load<GameObject>("Prefabs/Prefab_Parachuter");
         barrelPrefab = Resources.Load<GameObject>("Prefabs/Prefab_Barrel");
         heliSpriteRenderer = gameObject.GetComponent<SpriteRenderer>();
+        heliRigidBody = gameObject.GetComponent<Rigidbody2D>();
     }
 
     public void FixedUpdate() {
         //Incrementally raise speed/difficulty and transform position
-        speed += 0.01f;
-        downForce += 0.25f;
-        transform.Translate(direction * speed * Time.fixedDeltaTime);
+        speed += speedIncrement;
+        dropMagnitude += dropIncrement;
+        heliRigidBody.AddForce(direction * speed);
 
-        //Change helicopter direction according to random chance or if leaving game boundaries
-        float randDirectionChange = Random.Range(0.0f, 10.0f);
-        if (randDirectionChange <= 0.25f || transform.position.x >= 6.60f)  {
-            direction = Vector3.left;
-            heliSpriteRenderer.flipX =  true;
-        }
-        else if (randDirectionChange >= 9.75f || transform.position.x <= -6.75f) {
-            direction = Vector3.right;
-            heliSpriteRenderer.flipX = false;
+        //Flip helicopter direction according to random chance(5%)
+        if (randomPercentChanceLTE(0.05f))  {
+            heliSpriteRenderer.flipX = !heliSpriteRenderer.flipX;
+            direction = Vector3.right * (heliSpriteRenderer.flipX ? -1 : 1);
         }
         
         //Random chance to drop, 70/30 chance for parachuter/barrel respectively
-        if (Random.Range(0.0f, 10.0f) < 0.15f) {
-            GameObject randDropObject = (Random.Range(0.0f, 10.0f) < 7.0) ?
+        if (randomPercentChanceLTE(0.015f)) {
+            GameObject randDropObject = (randomPercentChanceLTE(0.7f)) ?
                     Instantiate<GameObject>(parachuterPrefab) :
                     Instantiate<GameObject>(barrelPrefab);
+
             Vector3 pos = transform.position;
             pos.z = 0.0f;
             Rigidbody2D doRigidbody = randDropObject.GetComponent<Rigidbody2D>();
             randDropObject.transform.position = pos;
-            doRigidbody.AddForce(-transform.up * downForce);
+            doRigidbody.AddForce(-transform.up * dropMagnitude);
             manager.dropOneShotAudio();
+
+
+            if (randDropObject.tag == "Barrel") {
+                activeBarrels.Add(randDropObject);
+            } else if (randDropObject.tag == "Parachuter") {
+                activeParachuters.Add(randDropObject);
+            }
         }
+    }
+
+    public void OnCollisionEnter2D(Collision2D collision) {
+        GameObject collidedWith = collision.gameObject;
+        
+        if (collidedWith.tag == "GameController") {
+            heliSpriteRenderer.flipX = !heliSpriteRenderer.flipX;
+            direction = Vector3.right * (heliSpriteRenderer.flipX ? -1 : 1);
+        }
+    }
+
+    public void clearActiveParachuters() {
+        foreach (GameObject parachuter in activeParachuters) {
+            Destroy(parachuter);
+        }
+        activeParachuters.Clear();
+    }
+
+    public bool randomPercentChanceLTE(float ltValue) {
+        if (ltValue > maxPercent) {
+            Debug.LogError("randomPercentChanceLT: LessThanValue greater than maxPercent");
+        }
+
+        return Random.Range(0.0f, maxPercent) <= ltValue;
     }
 }

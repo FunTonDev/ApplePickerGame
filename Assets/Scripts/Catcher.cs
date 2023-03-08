@@ -1,29 +1,38 @@
 ﻿using UnityEngine;
 
 public class Catcher : MonoBehaviour {
-    private GameManager manager;
+    private const float speed = 300.0f;
+    private const float stopRange = 0.2f;
+    private const float speedAdjustRange = 1.0f;
+    private const float speedAdjustCoeff = 0.5f;
 
-    public void Start() {
+    private GameManager manager;
+    private Rigidbody2D catcherRigidbody;
+
+
+    public void Awake() {
         manager = GameObject.Find("[MANAGER]").GetComponent<GameManager>();
+        catcherRigidbody = gameObject.GetComponent<Rigidbody2D>();
     }
 
     public void Update() {
-        Vector3 mousePos2D = Input.mousePosition;
-        Vector3 mousePos3D = Camera.main.ScreenToWorldPoint(mousePos2D);
-        Vector3 pos = transform.position;
-        pos.x = mousePos3D.x;
-        transform.position = pos;
-        /*
-        if (mousePos3D.x >= -6.9f && mousePos3D.x <= 6.9f) {
-            Vector3 pos = transform.position;
-            pos.x = mousePos3D.x;
-            transform.position = pos;
-        }*/
+        Vector3 mousePos3D = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        float xDiff = mousePos3D.x - transform.position.x;
+        float xDiffAbs = Mathf.Abs(xDiff); 
+
+        if (xDiffAbs > stopRange) {
+            Vector2 direction = Vector2.right * Mathf.Sign(xDiff);
+            catcherRigidbody.AddForce(direction * speed * (xDiffAbs < speedAdjustRange ? speedAdjustCoeff : 1.0f));
+        } else {
+            catcherRigidbody.velocity = Vector2.zero;
+        }
     }
 
     public void OnCollisionEnter2D(Collision2D collision) {
         GameObject collidedWith = collision.gameObject;
         manager.caughtObject(collidedWith.tag);
-        Destroy(collidedWith);
+        if (collidedWith.tag != "GameController") {
+            Destroy(collidedWith);
+        }
     }
 }
